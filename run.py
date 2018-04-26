@@ -3,8 +3,10 @@ import wave
 import struct
 import scipy.fftpack 
 import sys
+import numpy
 from math import floor
 from math import ceil
+from numpy.linalg import norm
 # from scipy.io import wavfile
 # import matplotlib.pyplot as plt
 
@@ -60,7 +62,7 @@ class Pitch:
 		return Pitch(self.frequency * 2, self.note, self.octave + 1)
 
 BASIS = [ Pitch(110, 0, 2) ]; # Start with a basis of A2 (110Hz), add the rest of the second octave below
-for i in range(17):
+for i in range(30):
 	BASIS.append(BASIS[i].Interval(TEMPER, 1))
 
 
@@ -73,21 +75,72 @@ data_norm = [(x / 2**swbytes)*2-1 for x in data_chan]
 #spectrum = transform[:floor(len(transform) / 2)]
 spectrum = scipy.fftpack.rfft(data_norm)
 
+# F = K * srate / bins
+# K = F * bins / srate
 def bin(frequency):
-	return ceil(frequency / binwidth)
+	return ceil(frequency * nframe / srate)
 
-def HarmonicProductSpectrum(frequency):
+def HarmonicProductSpectrum(basebin):
 	res = 0.0
-	for i in range(1,4): # Spectrum Depth
-		res += spectrum[bin(frequency * i)]
+	for i in range(1,5): # Spectrum Depth
+		bi = basebin * i
+		if(bi > len(spectrum)):
+			break
+		res += norm([spectrum[bi], spectrum[bi + 1]])
 	return res
 
 #
 #
 #
 
+maxf = 0
+maxn = "--"
+minnz = 0
+
 for pitch in BASIS:
-	print('%s%d\t %5f Hz\t %2f' % (NOTES_SHP[pitch.note], pitch.octave, pitch.frequency, HarmonicProductSpectrum(pitch.frequency)))
+	notename = '%s%d' % (NOTES_SHP[pitch.note], pitch.octave)
+
+	basebin = bin(pitch.frequency)
+	s_1  = HarmonicProductSpectrum(basebin - 2)
+	s    = HarmonicProductSpectrum(basebin)
+	s1   = HarmonicProductSpectrum(basebin + 2)
+
+	#imax = max(s_2, s_1, s, s1, s2)
+	imax = s
+	if(imax > maxf):
+		maxf = imax
+		maxn = notename
+	if(minnz == 0 or s < minnz):
+		minnz = s
+
+	print('---')
+	#print('\t\t\t %f' % s_1)
+	print('%s\t %5f Hz\t %2f' % (notename, pitch.frequency, s))
+	#print('\t\t\t %f' % s1)
+
+
+sample = filter(lambda x: x > minnz, spectrum)
+s_mean 		= numpy.mean(sample)
+s_stdev 	= numpy.std(sample)
+
+
+Candidates = []
+for pitch in BASIS:
+	if HarmonicProductSpectrum(bin(pitch.frequency)) > (s_mean + 3 * s_stdev):
+		Candidates.append(pitch)
+
+
+
+print('')
+print('===')
+print('Maximum:          %s\t%f' % (maxn, maxf))
+
+print('')
+print('Nonzero Mean:   %f' % s_mean)
+print('Nonzero Stdev:  %f' % s_stdev)
+
+print('')
+print('Candidates:  %s' % ' '.join([ ('%s%d' % (NOTES_SHP[x.note], x.octave)) for x in Candidates ]))
 
 
 # c = fft(b) # calculate fourier transform (complex numbers list)
