@@ -4,8 +4,10 @@ import struct
 import scipy.fftpack 
 import sys
 import numpy
+import bisect
 from math import floor
 from math import ceil
+from math import pow
 from numpy.linalg import norm
 # from scipy.io import wavfile
 # import matplotlib.pyplot as plt
@@ -18,7 +20,7 @@ TEMPER = 1.05946309436 # Twelfth root of two
 # a = data.T[0] 										# this is a two channel soundtrack, I get the first track
 # b=[(ele/2**8.)*2-1 for ele in a]					# this is 8-bit track, b is now normalized on [-1,1)
 
-wav_file = wave.open('gmaj.wav', 'r')
+wav_file = wave.open('input.wav', 'r')
 nchan, swidth, srate, scount, comptype, compname = wav_file.getparams()
 nyquist = floor(srate / 2)
 
@@ -61,8 +63,8 @@ class Pitch:
 	def Octave():
 		return Pitch(self.frequency * 2, self.note, self.octave + 1)
 
-BASIS = [ Pitch(110, 0, 2) ]; # Start with a basis of A2 (110Hz), add the rest of the second octave below
-for i in range(30):
+BASIS = [ Pitch(164.813778, 7, 2) ]; # Start with a basis of E2 (164.8Hz), add the rest of the second octave below
+for i in range(24):
 	BASIS.append(BASIS[i].Interval(TEMPER, 1))
 
 
@@ -80,70 +82,40 @@ spectrum = scipy.fftpack.rfft(data_norm)
 def bin(frequency):
 	return ceil(frequency * nframe / srate)
 
+DEPTH = 5
 def HarmonicProductSpectrum(basebin):
 	res = 0.0
-	for i in range(1,5): # Spectrum Depth
-		bi = basebin * i
+	for i in range(1, DEPTH): # Spectrum Depth
+		bi = int(basebin * i)
 		if(bi > len(spectrum)):
 			break
 		res += norm([spectrum[bi], spectrum[bi + 1]])
-	return res
+	return pow(res, 1.0 / DEPTH)
 
 #
 #
 #
 
-maxf = 0
-maxn = "--"
-minnz = 0
+
+Candidates = []
+HPSpectra  = []
 
 for pitch in BASIS:
 	notename = '%s%d' % (NOTES_SHP[pitch.note], pitch.octave)
 
 	basebin = bin(pitch.frequency)
-	s_1  = HarmonicProductSpectrum(basebin - 2)
 	s    = HarmonicProductSpectrum(basebin)
-	s1   = HarmonicProductSpectrum(basebin + 2)
 
-	#imax = max(s_2, s_1, s, s1, s2)
-	imax = s
-	if(imax > maxf):
-		maxf = imax
-		maxn = notename
-	if(minnz == 0 or s < minnz):
-		minnz = s
+	i = bisect.bisect(HPSpectra, s)
+	HPSpectra.insert(i, s)
+	Candidates.insert(i, notename)
+
 
 	print('---')
-	#print('\t\t\t %f' % s_1)
 	print('%s\t %5f Hz\t %2f' % (notename, pitch.frequency, s))
-	#print('\t\t\t %f' % s1)
 
-
-sample = filter(lambda x: x > minnz, spectrum)
-s_mean 		= numpy.mean(sample)
-s_stdev 	= numpy.std(sample)
-
-
-Candidates = []
-for pitch in BASIS:
-	if HarmonicProductSpectrum(bin(pitch.frequency)) > (s_mean + 3 * s_stdev):
-		Candidates.append(pitch)
-
-
+Result = Candidates[-5:]
 
 print('')
 print('===')
-print('Maximum:          %s\t%f' % (maxn, maxf))
-
-print('')
-print('Nonzero Mean:   %f' % s_mean)
-print('Nonzero Stdev:  %f' % s_stdev)
-
-print('')
-print('Candidates:  %s' % ' '.join([ ('%s%d' % (NOTES_SHP[x.note], x.octave)) for x in Candidates ]))
-
-
-# c = fft(b) # calculate fourier transform (complex numbers list)
-# d = len(c)/2  # you only need half of the fft list (real signal symmetry)
-# plt.plot(abs(c[:(d-1)]),'r') 
-# plt.show()
+print('Results:     %s' % ' '.join(Result))
