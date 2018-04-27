@@ -28,13 +28,13 @@ nframe = scount if scount < MAX_FRAMES else MAX_FRAMES
 binwidth = nyquist / nframe
 swbytes = 8 if swidth == 1 else ((swidth * 8) - 1) # Sample width is in bytes.  In .WAV, any sample width greater than 1 byte is signed.
 
+print('')
 print('Sample width: %d' % swidth)
-print('Sample count: %d' % scount)
 print('Sample rate:  %d' % srate)
-print('Nyquist frequency: %d' % nyquist)
 
-print('Reading %d samples (%f sec)' % (nframe, (nframe / srate)))
-print('Fourier bin width: %f' % binwidth)
+print('Reading %d samples (%f sec)' % (nframe, (float(nframe) / srate)))
+print('Nyquist frequency: %f Hz' % nyquist)
+print('Fourier bin width: %f Hz' % binwidth)
 print('')
 
 data_raw = wav_file.readframes(nframe)
