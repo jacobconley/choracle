@@ -58,6 +58,7 @@ for i in range(24):
 ##
 
 # Load the file and read its metadata
+# Number of channels, sample width in bytes, sample rate, sample count, and compression data that idk about
 wav_file = wave.open(sys.argv[-1], 'r')
 nchan, swidth, srate, scount, comptype, compname = wav_file.getparams()
 
@@ -113,12 +114,12 @@ def bin(frequency):
 # It's the geometric mean of the fourier spectrum values over HPDEPTH harmonics.  
 HPDEPTH = 5
 def HarmonicProduct(basebin):
-	res = 0.0
+	res = 1.0
 	for i in range(1, HPDEPTH): # Spectrum Depth
 		bi = int(basebin * i);
 		if(bi > len(fourier)):
 			break
-		res += fourier[bi]
+		res *= fourier[bi]
 	return pow(res, 1.0 / HPDEPTH)
 
 #
